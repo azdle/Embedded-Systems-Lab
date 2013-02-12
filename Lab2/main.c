@@ -73,6 +73,14 @@ void insertChar(unsigned char c);
 void checkBusy(void);
 void endLineCheck(void);
 
+/* SPI Functions */
+unsigned char rwspi(unsigned char spiOut);
+
+/* EEPROM Functions */
+unsigned char readEEPROM(unsigned int dataAddress);
+void writeEEPROM(unsigned int dataAddress, unsigned char byteToSend);
+void writeEnableEEPROM();
+
 /* Delay functions */
 void wait1ms(void);
 void waitms(unsigned short int ms);
@@ -90,10 +98,10 @@ void lo_isr_entry(void){
 
 #pragma interrupt hi_isr
 void hi_isr(void){
-
-    inbuffer[infront++] = RCREG; // clears the flag that caused the interrupt, too
-    infront &= 0x0f;
-
+	if (PIR1bits.RCIF){
+	    inbuffer[infront++] = RCREG; // clears the flag that caused the interrupt, too
+   		infront &= 0x0f;	
+	}
 }
 
 #pragma interruptlow lo_isr
@@ -199,20 +207,55 @@ void waitms(unsigned short int ms)
 	}
 }
 
+unsigned char rwspi(unsigned char spiOut){
+	SSPBUF = spiOut;
+	//while(SSPSTATbits.BF == 0);
+	return SSPBUF;
+}
+
+void writeEEPROM(unsigned int dataAddress, unsigned char byteToSend){
+		PORTAbits.RA3 = 0;
+		Nop();
+		Nop();
+		rwspi(0x02);
+		rwspi(dataAddress >> 8); // High Address
+		rwspi(dataAddress && 0xff); // Low Address
+		rwspi(byteToSend);
+		PORTAbits.RA3 = 1;
+}
+
+void writeEnableEEPROM(){
+		PORTAbits.RA3 = 0;
+		Nop();
+		Nop();
+		rwspi(0x06);
+		PORTAbits.RA3 = 1;
+}
+
+unsigned char readEEPROM(unsigned int dataAddress){
+		unsigned char readValue;
+		PORTAbits.RA3 = 0;
+		Nop();
+		Nop();
+		rwspi(0x03);
+		rwspi(dataAddress >> 8); // High Address
+		rwspi(dataAddress && 0xff); // Low Address
+		readValue = rwspi(0x00);
+		PORTAbits.RA3 = 1;
+		return readValue;
+}
+
 void setup(void){
 	
 	unsigned char tmp;
 	
-	// Set LCD interface
+	// Setup LCD
 	TRISD = 0;
 	PORTD = 0;
 	initLCD();
 
-	
-	// set RCSTA bits
+	// Setup Serial
 	RCSTA = 0x90; // assume 8 bits, enable USART, enable rcvr.
-	
-	// set TXSTA bits
 	TXSTA = 0x24; // enable xmitter, set BRGH
 	
 	BAUDCONbits.BRG16 = 1; 
@@ -224,8 +267,19 @@ void setup(void){
 	
 	if (PIR1bits.RCIF) tmp = RCREG;// clears flag;
 	
-	// enable device to generate interrupts
+
+	// Setup SPI
+	SSPSTATbits.SMP = 0;
+	SSPCON1bits.SSPEN = 1;
+	SSPCON1bits.CKP = 0;
+	SSPCON1bits.SSPM3 = 0; // FOSC/4
+	SSPCON1bits.SSPM2 = 0;
+	SSPCON1bits.SSPM1 = 0;
+	SSPCON1bits.SSPM0 = 0;
+
+	PIE1bits.SSPIE = 1;
 	
+	// enable device to generate interrupts
 	IPR1bits.RCIP = 1; // receive will be high priority
 	IPR1bits.TXIP = 0; // transmit will be low priority
 	
@@ -257,11 +311,22 @@ void sendChar(unsigned char c){
 void main(void){
 	unsigned char c;
     setup();
+	
+	//Write Saved Char to LCD
+	waitms(5);
+	insertChar(readEEPROM(0x0000));
+	waitms(5);
+
+	writeEnableEEPROM();
+	waitms(5);
+
 	while (1){
 		c = receiveChar();
 		endLineCheck();
 		insertChar(c); // to LCD
+		writeEEPROM(0x0000, c);
 		sendChar(c); // to hyperterminal
+		waitms(5); //For EEPROM Write
 	}
 		
 }
