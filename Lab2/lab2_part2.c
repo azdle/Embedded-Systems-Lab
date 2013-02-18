@@ -1,5 +1,5 @@
 #include <p18f4520.h>
-//#define PART_ONE  // Comment this out for part II of the lab
+//#define PART_ONE	// Comment this out for part II of the lab
 
 // PORTD =		1	E	R/W		RS		DB7	DB6	DB5	DB4	
 // RD7 has to be 1 to be powered ON
@@ -329,7 +329,6 @@ void writeEnable(void){
     	byteout(WREN);                  
 	#endif
 	SS =1 ;
-	waitms(10);
 }
 
 unsigned char readEEPROM(unsigned char command, unsigned short int address){
@@ -368,8 +367,8 @@ unsigned char readEEPROM(unsigned char command, unsigned short int address){
 		// -------------
 	#else
 	    byteout(command);               // Output command & MSb of address
-	    byteout((unsigned char)(address >> 8));          // Output MSB of address
-		byteout((unsigned char)address); 				// Output LSB of address
+	    byteout(address >> 8);          // Output MSB of address
+		byteout(address); 				// Output LSB of address
 	    data = bytein();        
 	#endif
 	SS = 1 ;
@@ -414,10 +413,10 @@ void writeEEPROM(unsigned char command, unsigned short int address, unsigned cha
 		// -------------
 	#else
 	    byteout(command);               
-	    byteout((unsigned char)(address >> 8));          // Output MSB of address
-		byteout((unsigned char)address); 				// Output LSB of address
+	    byteout(address >> 8);          // Output MSB of address
+		byteout(address); 				// Output LSB of address
 	    byteout(data);                  				// Write byte of data
-		waitms(10);
+		waitms(5);
 	#endif
 
 	SS = 1 ;
@@ -427,21 +426,24 @@ void byteout(unsigned char byte)
 {
     static unsigned char i;         // Loop counter
 
-    SCK = 0;                        // Ensure SCK is low
+    SCK = 0; 
     for (i = 0; i < 8; i++)         // Loop through each bit
     {
+
         if (byte & 0x80)            // Check if next bit is a 1
         {
-            SDO = 1;                 // If a 1, pull SO high
+            SDO = 1;                 // If a 1, pull SDO high
         }
         else
         {
-            SDO = 0;                 // If a 0, pull SO low
+            SDO = 0;                 // If a 0, pull SDO low
         }
-        SCK = 1;                    // Bring SCK high to latch bit
-        _asm nop _endasm;       
+      
+		SCK = 1;                    // Bring SCK high to latch bit
+        _asm nop _endasm;      
         SCK = 0;                    // Bring SCK low for next bit
-        byte = byte << 1;           // Shift byte left for next bit
+
+		byte = byte << 1;           // Shift byte left for next bit
     }
 } 
 
@@ -478,17 +480,19 @@ void main(void){
     setup();
 
 	// reading from eeprom at RESET
+	
 	for(i=0; i<30;i++){
 			eeprom_data = readEEPROM(READ,i);
 			endLineCheck();
 			insertChar(eeprom_data); // to LCD
 	}
+	
 
 	// Receiving chars, echoing them in LCD and hyperterminal
 	while (1){
 		
 		c = receiveChar();
-	
+		//waitms(5);
 		writeEEPROM(WRITE, eeprom_address, c);
 		waitms(5);
 		//eeprom_data = readEEPROM(READ,eeprom_address);
@@ -501,3 +505,5 @@ void main(void){
 	}
 		
 }
+
+
