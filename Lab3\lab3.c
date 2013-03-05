@@ -38,7 +38,7 @@ AC: Address counter used for both DD and CGRAM addresses
 
 */
 /*
-to  correctly  read  data,
+to  correctly  read  data, 
 execute either the address set instruction or cursor shift instruction (only with DDRAM), then just
 before  reading  the  desired  data,  execute  the  read  instruction  from  the  second  time  the  read
 instruction is sent.
