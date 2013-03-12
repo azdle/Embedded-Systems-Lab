@@ -43,6 +43,7 @@ void RestartI2C();
 void StopI2C();
 void WriteI2C( unsigned char data );
 void ReadI2C();
+void AckI2C();
 void NotAckI2C();
 
 volatile unsigned char I2CIdleFlag = 0;
