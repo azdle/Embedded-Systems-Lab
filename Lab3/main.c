@@ -2,7 +2,7 @@
 Participants: Quoc Anh Tran, Patrick Barrett
 IDs: 451 7669, 381 3525
 Course: EE4341
-Date: 2/15/2013
+Date: 3/11/2013
 */
 #define MY_I2C // Comment this line out to use provided i2c functions.
 
@@ -298,7 +298,6 @@ unsigned char AckPolling(unsigned char data ){
     SSPCON2bits.ACKSTAT = 1;
     SSPBUF = data;
     IdleI2C();
-    waitms(1);
     return !SSPCON2bits.ACKSTAT;
 }
 #endif
