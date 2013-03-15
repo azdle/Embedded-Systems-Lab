@@ -76,7 +76,7 @@ void lo_isr_entry(void){
 #pragma interrupt hi_isr
 void hi_isr(void){
     ByteWriteI2C(0xa0, 0x01, 0, counter);
-    //while(1); //Don't do anything stupid.
+    while(1); //Don't do anything stupid.
 }
 
 #pragma interruptlow lo_isr
@@ -364,12 +364,6 @@ void main(void){
     }
 
     while (1){
-        while(PORTAbits.RA4 ==1);
-        waitms(20);
-        //T2CONbits.TMR2ON = 0;
-        //PORTBbits.RB3 = PORTBbits.RB3^1;
-        while (PORTAbits.RA4 == 0);
-        waitms(10);
 
     }
 }
