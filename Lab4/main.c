@@ -1,5 +1,5 @@
 #include <p18f4520.h>
-
+//
 #pragma config OSC=INTIO7, IESO=OFF, FCMEN=OFF
 #pragma config PWRT=OFF, BOREN=OFF, WDT=OFF, LVP=OFF
 #pragma config MCLRE=ON, STVREN=ON, LPT1OSC=OFF, PBADEN=OFF
