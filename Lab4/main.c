@@ -55,7 +55,10 @@ void sendChar(unsigned char c);
 
 /* SPI functions */
 unsigned char rwSPI( unsigned char data );
+
+/* CAN functions */
 void setupCAN( void );
+unsigned char CANStatus();
 
 /* Delay functions */
 void wait1ms(void);
@@ -136,6 +139,7 @@ void setup(void){
 
     SSPCON1 = 0b00110000;	// fastest clock master mode
     SSPSTATbits.CKE = 0;
+    SSPSTATbits.SMP = 1;
     // -----------------------------
 
     setupCAN();
@@ -206,6 +210,7 @@ unsigned char CANStatus( ){
     rwSPI(CAN_READ_STATUS);
     data = rwSPI(0x00);
     SS = 1;
+    Nop();
     return data;
 }
 
@@ -228,9 +233,7 @@ void main(void){
     while (1){
 
         // Get Character from UART
-        //c = receiveChar();
-        c++;
-        waitms(100);
+        c = receiveChar();
 
         // Wait for CAN TX Buffer to be Open
         while(CANStatus() & 0x54);
@@ -247,7 +250,7 @@ void main(void){
         Nop();
 
         SS = 0;
-        rwSPI(CAN_RTS);
+        rwSPI(CAN_RTS & 0x01);
         SS = 1;
 
         // Wait for Reply from CAN Bus
