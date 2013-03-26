@@ -9,6 +9,8 @@
 #include "FreeRTOS.h"			// FreeRTOS.org includes.
 #include "task.h"
 
+#include "pdc.c"
+
 /*-----------------------------------------------------------*/
 // PIC32 configuration
 /*-----------------------------------------------------------*/
@@ -19,24 +21,22 @@
 /* Basic hardware and debug interface configuration. */
 void vSetupEnvironment( void );
 
-/*-----------------------------------------------------------*/
-// The task functions.
-/*-----------------------------------------------------------*/
-void clockTask( void *pvParameters );
-
 /************************************
 * Author: E.Pataky
 * DESC: main function, setup 1 task for now
 *************************************/
 int main( void )
 {
+	initializePDC();
 	/* Configure both the hardware and the debug interface. */
 	vSetupEnvironment();
 
-	// create tasks
+	// Create Tasks
+	xTaskCreate( clockTask,    (signed char*) "RTC",          configMINIMAL_STACK_SIZE,NULL, 100, NULL);
+	xTaskCreate( samplingTask, (signed char*) "INPUT SAMPLE", configMINIMAL_STACK_SIZE,NULL, 20, NULL);
 
 	/* Start the scheduler so our tasks start executing. */
-	//vTaskStartScheduler();	
+	vTaskStartScheduler();	
 	
 	/* If all is well we will never reach here as the scheduler will now be
 	running.  If we do reach here then it is likely that there was insufficient
@@ -49,7 +49,22 @@ int main( void )
 // change notification feature here
 void setupPorts()
 {
+	unsigned char temp;
+    PORTSetPinsDigitalOut(IOPORT_D, BIT_0);
+    PORTSetPinsDigitalOut(IOPORT_D, BIT_1);
+    PORTSetPinsDigitalOut(IOPORT_D, BIT_2);
+    PORTSetPinsDigitalIn(IOPORT_D, BIT_6);
+    PORTSetPinsDigitalIn(IOPORT_D, BIT_7);
+    //PORTSetPinsDigitalIn(IOPORT_D, BIT_13);
 
+	mPORTDSetBits(BIT_0);
+	mPORTDSetBits(BIT_1);
+	mPORTDSetBits(BIT_2);
+
+    mCNOpen((CN_ON | CN_IDLE_CON), (CN15_ENABLE), (CN15_PULLUP_ENABLE));
+    temp = mPORTDRead();
+    ConfigIntCN((CHANGE_INT_ON | CHANGE_INT_PRI_2)); //Clear Flag
+    INTEnableSystemMultiVectoredInt();
 }
 
 void vSetupEnvironment( void )
@@ -74,3 +89,16 @@ void vSetupEnvironment( void )
 }
 /*-----------------------------------------------------------*/
 
+void __ISR(_CHANGE_NOTICE_VECTOR, ipl2) ChangeNotice_Handler(void)
+{
+	unsigned int temp;
+
+    // clear the mismatch condition
+    temp = mPORTDRead();
+
+    // clear the interrupt flag
+    mCNClearIntFlag();
+
+    // .. things to do .. toggle the led
+    BUTTON_STATE = (temp & 0x03);
+}
