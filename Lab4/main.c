@@ -1,12 +1,9 @@
 #include <p18f4520.h>
-//
-#pragma config OSC=INTIO7, IESO=OFF, FCMEN=OFF
-#pragma config PWRT=OFF, BOREN=OFF, WDT=OFF, LVP=OFF
-#pragma config MCLRE=ON, STVREN=ON, LPT1OSC=OFF, PBADEN=OFF
-#pragma config DEBUG = ON
+
+/*++++++++++++++++++++++++++++++++++++  D E F I N I T I O N S +++++++++++++++++++++++++++++++++++*/
 
 /*--- SPI, using MSSP ----*/
-#define SS 	PORTAbits.RA5
+#define SS 		PORTAbits.RA5
 #define SDI 	PORTCbits.RC4
 #define SDO 	PORTCbits.RC5
 #define SCK 	PORTCbits.RC3
@@ -15,28 +12,31 @@
 #define TRIS_SCK 	TRISCbits.TRISC3
 #define TRIS_SDI 	TRISCbits.TRISC4
 #define TRIS_SDO 	TRISCbits.TRISC5
-
-#define CAN_RESET			0b11000000
-#define CAN_READ			0b00000011
-#define CAN_READ_RX_BUFFER              0b10010000	//0b10010nm0
-#define CAN_WRITE			0b00000010
-#define CAN_WRTIE_TX_BUFFER             0b01000000	//0b01000abc
-#define CAN_RTS				0b10000000	//0b10000nnn
-#define CAN_READ_STATUS                 0b10100000
-#define CAN_RX_STATUS                   0b10110000
-#define CAN_BIT_MODIFY                  0b00000101
 /*---------------------------*/
 
-unsigned char CAN_Setup_Array[] =
-{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7e, 0x00, 0xff, 0xff, 0x3c, 0x00, 0x80, 0x80,
- 0x7e, 0x20, 0xff, 0xff, 0x7e, 0x40, 0xff, 0xff, 0x7e, 0x50, 0xff, 0xff, 0x00, 0x00, 0x80, 0x80,
- 0xff, 0xff, 0xff, 0xff, 0x7e, 0x00, 0x00, 0x00, 0x02, 0x90, 0x03, 0x22, 0x00, 0x00, 0x80, 0x80,
- 0x03, 0x7e, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80,
- 0x03, 0x7e, 0xe0, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80,
- 0x03, 0x7e, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80,
- 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80,
- 0xF0};
 
+/*--- MCP2515, CAN ---*/
+#define CAN_RESET			0b11000000
+#define CAN_WRITE			0b00000010
+#define CAN_RTS				0b10000000	//0b10000nnn
+#define CAN_READ_STATUS     0b10100000
+
+
+#define CAN_REG_CNF1		0x2a
+#define CAN_REG_CNF2		0x29
+#define CAN_REG_CNF3		0x28
+#define CAN_TXB0CTRL		0x30
+#define CAN_RXB0CTRL		0x60
+#define CAN_REG_RXB0DLC		0x65	// rx data length
+#define CAN_REG_TXB0DLC		0x3A	//tx data length
+#define CAN_CANCTRL			0x0F
+/*---------------------------*/
+
+/*________________________________________________________________________________________________________*/
+
+/*+++++++++++++++++++++++++++++++++  G L O B A L   V A R I A B L E S  ++++++++++++++++++++++++++++++++++++*/
+
+/*--- USART ---*/
 char inbuffer[16];
 unsigned char infront = 0;
 unsigned char inback = 0;
@@ -44,10 +44,19 @@ unsigned char inback = 0;
 char outbuffer[16];
 unsigned char outfront = 0;
 unsigned char outback = 0;
+/*---------------------------*/
 
-void hi_isr(void); 
-void lo_isr(void); 
+/*________________________________________________________________________________________________________*/
+
+
+/*++++++++++++++++++++++++++++++++++++  F U N C T I O N  D E F I N I T I O N S ++++++++++++++++++++++++++++++++*/
+
+/* GENERAL */
 void setup(void);
+
+/* INTERRUPTS */
+void hi_isr(void);
+void lo_isr(void);
 
 /* USART functions */
 unsigned char receiveChar(void);
@@ -55,21 +64,24 @@ void sendChar(unsigned char c);
 
 /* SPI functions */
 unsigned char rwSPI( unsigned char data );
-
-/* CAN functions */
 void setupCAN( void );
-unsigned char CANStatus();
+unsigned char CANStatus( );
+void SPIWrite(unsigned char addr, unsigned char data);
+void CANTransmit (unsigned char ch);
+unsigned char CANReceive(void);
 
 /* Delay functions */
 void wait1ms(void);
 void waitms(unsigned short int ms);
+/*________________________________________________________________________________________________________________*/
 
+/*++++++++++++++++++++++++++++++++++++++++++++++++++++++  C O D E  +++++++++++++++++++++++++++++++++++++++++++++++*/
 
 #pragma code hi_isr_entry=8
 void hi_isr_entry(void){
     _asm goto hi_isr _endasm
 }
-	
+
 #pragma code lo_isr_entry=0x18
 void lo_isr_entry(void){
     _asm goto lo_isr _endasm
@@ -137,13 +149,12 @@ void setup(void){
     TRIS_SCK = 0;	//SCK
     TRIS_SS = 0; 	// /ss
 
-    SSPCON1 = 0b00110000;	// fastest clock master mode
-    SSPSTATbits.CKE = 0;
-    SSPSTATbits.SMP = 1;
+    SSPCON1 = 0x20;	// fastest clock master mode, SPI mode (0, 0)
+    SSPSTAT = 0x40;	// CKE = 0, SMP = 0
+
     // -----------------------------
 
     setupCAN();
-	
 }
 
 unsigned char receiveChar(void){
@@ -170,47 +181,25 @@ void setupCAN(void){
     rwSPI(CAN_RESET);
     SS = 1;
 
-    for(i = 0; i < 128; i++);
+	SPIWrite(CAN_REG_CNF1,0x03);
+	SPIWrite(CAN_REG_CNF2,0x90);
+	SPIWrite(CAN_REG_CNF3,0x02);
+	SPIWrite(CAN_REG_RXB0DLC, 0x01);
+	SPIWrite(CAN_REG_TXB0DLC, 0x01);
+    SPIWrite(CAN_TXB0CTRL, 0x00);
+    SPIWrite(CAN_RXB0CTRL, 0x60);
+    SPIWrite(CAN_CANCTRL, 0x40);        // LOOPBACK MODE
 
-
-    // Wite Settings Array
-    SS = 0;
-    rwSPI(CAN_WRITE);
-    rwSPI(0x00);
-    for(i = 0; i < (sizeof(CAN_Setup_Array) / sizeof(char)); i++){
-            rwSPI(CAN_Setup_Array[i]);
-    }
-    SS = 1;
-
-    Nop(); //Delay cycle to allow SS pin to toggle.
-
-    // Change to Loopback Mode
-    SS = 0;
-    rwSPI(CAN_WRITE); // 0x02
-    rwSPI(0x0F);
-    rwSPI(0b01011000); // Loopback Mode, Abort Pending, OneShot Mode, No Clock Out
-    SS = 1;
-
-    Nop();
-
-
-    // Read Status, Basic Test
-    for(i = 0; i < 128; i++);
-    SS = 0;
-    rwSPI(CAN_READ); // 0x03
-    rwSPI(0x0E);
-    data = rwSPI(0x00);
-    SS = 1;
-    sendChar(data);
 }
 
 unsigned char CANStatus( ){
     unsigned char data;
+
     SS = 0;
     rwSPI(CAN_READ_STATUS);
-    data = rwSPI(0x00);
+    data = rwSPI(0);
     SS = 1;
-    Nop();
+
     return data;
 }
 
@@ -218,52 +207,57 @@ unsigned char rwSPI( unsigned char data ){
     SSPBUF = data;
     while(!SSPSTATbits.BF);
     data = SSPBUF;
+
+    return data;
+}
+
+void SPIWrite(unsigned char addr, unsigned char data){
+
+    SS = 0;
+    rwSPI(CAN_WRITE);
+    rwSPI(addr);
+    rwSPI(data);
+    SS = 1;
+}
+
+void CANTransmit (unsigned char c)
+{
+    SS = 0;
+    rwSPI(0x41); // Load TXB0
+    rwSPI(c);
+    SS = 1;
+
+    SS = 0;
+    rwSPI(0x81);   //Request to Transfer TXB0
+    SS = 1;
+}
+
+unsigned char CANReceive(void){
+    unsigned char data;
+
+    SS = 0;
+    rwSPI(0x92); // Receive on RXB0
+    data = rwSPI(0);
+    SS = 1;
+
     return data;
 }
 
 void main(void){
-    unsigned char c;
+    unsigned char c,x;
 
     setup();
-    sendChar('P');
-    sendChar('a');
-    sendChar('t');
-
-    c = 'a'-1;
     while (1){
-
-        // Get Character from UART
+        waitms(10);
         c = receiveChar();
+        CANTransmit(c);
+        c = CANStatus();
 
-        // Wait for CAN TX Buffer to be Open
-        while(CANStatus() & 0x54);
+        while((c&0x01) == 0){
+            c = CANStatus();
+        }
 
-        // Send Frame to CAN Bus
-        SS = 0;
-        rwSPI(CAN_WRTIE_TX_BUFFER | 0b000);
-        rwSPI(0xB0); // RXF0SIDH
-        rwSPI(0x00); // RXF0SIDL
-        rwSPI(0x00); // RXF0EID8
-        rwSPI('a');  // RXF0EID0
-        SS = 1;
-
-        Nop();
-
-        SS = 0;
-        rwSPI(CAN_RTS & 0x01);
-        SS = 1;
-
-        // Wait for Reply from CAN Bus
-        while(!(CANStatus() & 0x03));
-
-        // Get Reply from CAN Bus
-        SS = 0;
-        rwSPI(CAN_READ_RX_BUFFER);
-        c = rwSPI(0x00);
-        SS = 1;
-
-        // Send back to UART
-        sendChar(c);
+        x = CANReceive();
+        sendChar(x);
     }
-		
 }
