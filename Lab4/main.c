@@ -28,7 +28,7 @@
 #define CAN_TXB0CTRL		0x30
 #define CAN_RXB0CTRL		0x60
 #define CAN_REG_RXB0DLC		0x65	// rx data length
-#define CAN_REG_TXB0DLC		0x3A	//tx data length
+#define CAN_REG_TXB0DLC		0x3A	// tx data length
 #define CAN_CANCTRL			0x0F
 /*---------------------------*/
 
@@ -58,19 +58,21 @@ void setup(void);
 void hi_isr(void);
 void lo_isr(void);
 
-/* USART functions */
+/* USART */
 unsigned char receiveChar(void);
 void sendChar(unsigned char c);
 
-/* SPI functions */
+/* SPI */
 unsigned char rwSPI( unsigned char data );
+
+/* CAN */
 void setupCAN( void );
 unsigned char CANStatus( );
-void SPIWrite(unsigned char addr, unsigned char data);
+void registerWrite(unsigned char addr, unsigned char data);
 void CANTransmit (unsigned char ch);
 unsigned char CANReceive(void);
 
-/* Delay functions */
+/* DELAY */
 void wait1ms(void);
 void waitms(unsigned short int ms);
 /*________________________________________________________________________________________________________________*/
@@ -181,14 +183,17 @@ void setupCAN(void){
     rwSPI(CAN_RESET);
     SS = 1;
 
-	SPIWrite(CAN_REG_CNF1,0x03);
-	SPIWrite(CAN_REG_CNF2,0x90);
-	SPIWrite(CAN_REG_CNF3,0x02);
-	SPIWrite(CAN_REG_RXB0DLC, 0x01);
-	SPIWrite(CAN_REG_TXB0DLC, 0x01);
-    SPIWrite(CAN_TXB0CTRL, 0x00);
-    SPIWrite(CAN_RXB0CTRL, 0x60);
-    SPIWrite(CAN_CANCTRL, 0x40);        // LOOPBACK MODE
+    for(i = 0; i < 64; i++);
+
+    // Setup CAN Device
+	registerWrite(CAN_REG_CNF1,0x03);
+	registerWrite(CAN_REG_CNF2,0x90);
+	registerWrite(CAN_REG_CNF3,0x02);
+	registerWrite(CAN_REG_RXB0DLC, 0x01);
+	registerWrite(CAN_REG_TXB0DLC, 0x01);
+    registerWrite(CAN_TXB0CTRL, 0x00);
+    registerWrite(CAN_RXB0CTRL, 0x60);
+    registerWrite(CAN_CANCTRL, 0x40);        // LOOPBACK MODE
 
 }
 
@@ -211,8 +216,7 @@ unsigned char rwSPI( unsigned char data ){
     return data;
 }
 
-void SPIWrite(unsigned char addr, unsigned char data){
-
+void registerWrite(unsigned char addr, unsigned char data){
     SS = 0;
     rwSPI(CAN_WRITE);
     rwSPI(addr);
@@ -223,12 +227,12 @@ void SPIWrite(unsigned char addr, unsigned char data){
 void CANTransmit (unsigned char c)
 {
     SS = 0;
-    rwSPI(0x41); // Load TXB0
+    rwSPI(0x41);    // Load TXB0
     rwSPI(c);
     SS = 1;
 
     SS = 0;
-    rwSPI(0x81);   //Request to Transfer TXB0
+    rwSPI(0x81);    //Request to Transfer TXB0
     SS = 1;
 }
 
@@ -248,14 +252,10 @@ void main(void){
 
     setup();
     while (1){
-        waitms(10);
         c = receiveChar();
         CANTransmit(c);
-        c = CANStatus();
 
-        while((c&0x01) == 0){
-            c = CANStatus();
-        }
+        while(!(CANStatus()&0x01));
 
         x = CANReceive();
         sendChar(x);
