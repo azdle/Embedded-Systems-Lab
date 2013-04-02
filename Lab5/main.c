@@ -1,7 +1,8 @@
-/*
-	E.Pataky
-	DESC: Dive computer RTOS example
-*/
+/*============================================================
+	Author:		E.Pataky
+	Adapted By:	Patrick Barrett
+	DESC:		Dive computer RTOS
+==============================================================*/
 
 #include <p32xxxx.h>			// MPLAB includes.
 #include <plib.h>				// Adds support for PIC32 Peripheral library functions and macros
@@ -45,8 +46,10 @@ int main( void )
 	return 0;
 }
 
-// use supplied ports example to setup ports and 
-// change notification feature here
+/************************************
+* Author: Patrick Barrett
+* DESC: setup I/O and interrupts
+*************************************/
 void setupPorts()
 {
 	unsigned char temp;
@@ -61,7 +64,7 @@ void setupPorts()
 	mPORTDSetBits(BIT_1);
 	mPORTDSetBits(BIT_2);
 
-    mCNOpen((CN_ON | CN_IDLE_CON), (CN15_ENABLE), (CN15_PULLUP_ENABLE));
+    mCNOpen((CN_ON | CN_IDLE_CON), (CN15_ENABLE | CN16_ENABLE), (CN15_PULLUP_ENABLE | CN16_PULLUP_ENABLE));
     temp = mPORTDRead();
     ConfigIntCN((CHANGE_INT_ON | CHANGE_INT_PRI_2)); //Clear Flag
     INTEnableSystemMultiVectoredInt();
@@ -91,14 +94,25 @@ void vSetupEnvironment( void )
 
 void __ISR(_CHANGE_NOTICE_VECTOR, ipl2) ChangeNotice_Handler(void)
 {
-	unsigned int temp;
+	unsigned short portState;
 
     // clear the mismatch condition
-    temp = mPORTDRead();
+    portState = mPORTDReadBits(BIT_6 | BIT_7);
 
     // clear the interrupt flag
     mCNClearIntFlag();
 
     // .. things to do .. toggle the led
-    BUTTON_STATE = (temp & 0x03);
+    BUTTON_EVENT = (portState >> 6);
+
+
+
+	if(!(portState & 0b01000000)){
+		BUTTON_EVENT |= 1;
+		DESCENT_RATE_FPS++;
+	}
+	if(!(portState & 0b10000000)){
+		BUTTON_EVENT |= 2;
+		DESCENT_RATE_FPS--;
+	}
 }

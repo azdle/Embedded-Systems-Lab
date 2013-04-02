@@ -22,7 +22,7 @@ static volatile unsigned char PDC_STATE;				// always has one of the MODE define
 static volatile unsigned long seconds = 0;				// time
 static volatile int DESCENT_RATE_FPS = 0;				// descent rate in ft/second
 static volatile unsigned char wentUnder = 0;			// simple flag to check if they went underwater yet
-static volatile unsigned char BUTTON_STATE = 0;
+static volatile unsigned char BUTTON_EVENT = 0;
 
 // These define dive records, and the diveData array is 
 // representing a fixed size storage media
@@ -42,7 +42,6 @@ typedef struct {
 	RECORD	diveRecords[100];	// array of RECORDS
 	word 	TRAILER;			// in this implementation this is simply time in seconds, binary
 } DIVE_FILE;
-static volatile int diveNumber = -1; 		// acts as a pointer to the current dive records in diveData
 static volatile int completedDives = 0;		
 static volatile DIVE_FILE diveData[2];		// array of dive records, represents EEPROM
 static volatile int currentDepth = 0;		// depth in FT
@@ -50,59 +49,67 @@ static volatile int currentDepth = 0;		// depth in FT
 xSemaphoreHandle xMutexEEPROM;
 
 /************************************
-* Author: E.Pataky
-* DESC: end the dive
+* Author: Patrick Barrett
+* DESC: Print Out the Dive File
 *************************************/
 void printDiveFile(){
+	//diveData[completedDives]
 }
 
 /************************************
-* Author: E.Pataky
-* DESC: create new dive
+* Author: Patrick Barrett
+* DESC: Initialize New Dive
 *************************************/
 void newDive(){
+	wentUnder = seconds;
 }
 
 /************************************
-* Author: E.Pataky
+* Author: Patrick Barrett
+* DESC: Finish Dive
+*************************************/
+void endDive(){
+
+	printDiveFile();
+	completedDives++;
+}
+
+/************************************
+* Author: Patrick Barrett
 * DESC: take sample
 *************************************/
 unsigned char takeSample(){
-	static unsigned char knownButtonState = 0;
-	unsigned char buttonPressedEvent = 0;
-	// This will return a 1 for any bit that has gone from 0 to 1:
-	buttonPressedEvent = (BUTTON_STATE ^ knownButtonState) & BUTTON_STATE;
-	knownButtonState = BUTTON_STATE;
-	return buttonPressedEvent;
+	unsigned char buttonEvent = 0;
+
+	taskENTER_CRITICAL();
+	buttonEvent = BUTTON_EVENT;
+	BUTTON_EVENT = 0;
+	taskEXIT_CRITICAL();
+
+	if(buttonEvent){
+		xTaskCreate( eventTask, (signed char*) "EXE EVENT", configMINIMAL_STACK_SIZE, NULL, 10, NULL);
+	}
+
+	return 0;
 }
 
 
 /************************************
-* Author: E.Pataky
+* Author: Patrick Barrett
 * DESC: event record
 *************************************/
 void eventRecord(){
 	xSemaphoreTake( xMutexEEPROM, portMAX_DELAY );
-	
-	if(PDC_STATE == SURFACE_MODE){
-		
-	}
+	// Write Event to EEPROM
 
 	xSemaphoreGive( xMutexEEPROM );
-}
-
-/************************************
-* Author: E.Pataky
-* DESC: end the dive
-*************************************/
-void endDive(){
 }
 
 void updateLEDs(){
 }
 
 /************************************
-* Author: E.Pataky
+* Author: Patrick Barrett
 * DESC: initialize all dive variables
 *************************************/
 void initializePDC(){
@@ -110,34 +117,62 @@ void initializePDC(){
 }
 
 
-
-
+/************************************
+* Author: Patrick Barrett
+* DESC: keeps track of the clock and depth.
+*************************************/
 void clockTask( void *pvParameters ){
 	// inf loop
 	for(EVER){
 		vTaskDelay( 1000 / portTICK_RATE_MS );
 		seconds++;
-	}
-	vTaskDelete(NULL); // precaution in case
-}
 
-
-void samplingTask( void *pvParameters ){
-	static unsigned char buttonEvent = 0;
-	// inf loop
-	for(EVER){
-		vTaskDelay( 250 / portTICK_RATE_MS );
-		buttonEvent = takeSample();
-		if(buttonEvent){
-			xTaskCreate( eventTask, (signed char*) "EXE EVENT", configMINIMAL_STACK_SIZE, &buttonEvent, 10, NULL);
+		if(PDC_STATE == SURFACE_MODE){
+			if(DESCENT_RATE_FPS > 0 && currentDepth == 0){
+				newDive();
+			}
+		}else{
+			currentDepth += DESCENT_RATE_FPS;
+	
+			if(DESCENT_RATE_FPS < 0 && currentDepth <= 0){
+				endDive();
+			}
 		}
 	}
 	vTaskDelete(NULL); // precaution in case
 }
 
 
-void eventTask( void *pvParameters ){
-	eventRecord();
+/************************************
+* Author: Patrick Barrett
+* DESC: Writes to the 'EEPROM' every 2 seconds.
+*************************************/
+void samplingTask( void *pvParameters ){
+	// inf loop
+	for(EVER){
+		vTaskDelay( 2000 / portTICK_RATE_MS );
+	
+	if(PDC_STATE == DIVE_MODE){
+		xSemaphoreTake( xMutexEEPROM, portMAX_DELAY );
+		//Write Sample to EEPROM Here
 
+		xSemaphoreGive( xMutexEEPROM );
+	}
+
+	}
+	vTaskDelete(NULL); // precaution in case
+}
+
+/************************************
+* Author: Patrick Barrett
+* DESC: This task is enabled as a one-off every time a button is pressed.
+*************************************/
+void eventTask( void *pvParameters ){
+	unsigned char buttonEvent =  0;
+	if(buttonEvent == 1){
+	}else if(buttonEvent == 2){
+	}
+
+	eventRecord();
 	vTaskDelete(NULL); // One Time Task, Don't Repeat
 }
