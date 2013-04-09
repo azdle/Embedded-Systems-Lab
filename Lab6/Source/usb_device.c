@@ -273,6 +273,31 @@ firmware design flexibility.
 #endif
 
 /** DEFINITIONS ****************************************************/
+#define USB_LOGGING
+#ifdef USB_LOGGING
+typedef enum{
+	CONNTECTED,
+	DISCONECTED,
+	RESET,
+	ERROR,
+	STALL,
+	STATECHANGE,
+	TRANSCOM,
+	IN,
+	OUT,
+	SETUP
+}USB_LOG_EVENT;
+ 
+typedef struct{
+   USB_LOG_EVENT type;
+   int time;
+   int value;
+} USB_RECORD;
+
+USB_RECORD USB_LOG[100];
+unsigned char USB_LOG_COUNT = 0;
+unsigned int timeSinceConnection = 0;
+#endif
 
 /** VARIABLES ******************************************************/
 #if defined(__18CXX)
@@ -789,6 +814,12 @@ void USBDeviceTasks(void)
          * as a USB bus reset from the USB host.
          */
 
+		#ifdef USB_LOGGING
+		timeSinceConnection = 0;
+		USB_LOG[USB_LOG_COUNT].time = 0;
+		USB_LOG[USB_LOG_COUNT++].type = CONNTECTED;
+		#endif
+
         if(!USBSE0Event)
         {
             USBClearInterruptRegister(U1IR);// Clear all USB interrupts
@@ -846,6 +877,11 @@ void USBDeviceTasks(void)
      */
     if(USBResetIF && USBResetIE)
     {
+		#ifdef USB_LOGGING
+		USB_LOG[USB_LOG_COUNT].time = timeSinceConnection;
+		USB_LOG[USB_LOG_COUNT++].type = RESET;
+		#endif
+
         USBDeviceInit();
 
         //Re-enable the interrupts since the USBDeviceInit() function will
@@ -929,11 +965,21 @@ void USBDeviceTasks(void)
 
     if(USBStallIF && USBStallIE)
     {
+		#ifdef USB_LOGGING
+		USB_LOG[USB_LOG_COUNT].time = timeSinceConnection;
+		USB_LOG[USB_LOG_COUNT++].type = STALL;
+		#endif
+
         USBStallHandler();
     }
 
     if(USBErrorIF && USBErrorIE)
     {
+		#ifdef USB_LOGGING
+		USB_LOG[USB_LOG_COUNT].time = timeSinceConnection;
+		USB_LOG[USB_LOG_COUNT++].type = ERROR;
+		#endif
+
         USB_ERROR_HANDLER(EVENT_BUS_ERROR,0,1);
         USBClearInterruptRegister(U1EIR);               // This clears UERRIF
 
@@ -961,6 +1007,11 @@ void USBDeviceTasks(void)
      */
     if(USBTransactionCompleteIE)
     {
+		#ifdef USB_LOGGING
+		USB_LOG[USB_LOG_COUNT].time = timeSinceConnection;
+		USB_LOG[USB_LOG_COUNT++].type = TRANSCOM;
+		#endif
+
 	    for(i = 0; i < 4u; i++)	//Drain or deplete the USAT FIFO entries.  If the USB FIFO ever gets full, USB bandwidth 
 		{						//utilization can be compromised, and the device won't be able to receive SETUP packets.
 		    if(USBTransactionCompleteIF)

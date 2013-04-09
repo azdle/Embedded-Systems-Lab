@@ -103,6 +103,7 @@ void UserInit(void);
  *****************************************************************************/
 int main(void)
 {   
+	unsigned char enumSent = FALSE;
     InitializeSystem();
 
     #if defined(USB_INTERRUPT)
@@ -131,7 +132,12 @@ int main(void)
         // Application-specific tasks.
         // Application related code may be added here, or in the ProcessIO() function.
         ProcessIO();        
-
+		if(enumSent == FALSE && USBGetDeviceState() == CONFIGURED_STATE){
+            if(mUSBUSARTIsTxTrfReady()){
+                putrsUSBUSART("Device Enumerated!");
+                enumSent = TRUE;
+            }
+		}
     }//end while
 
 }//end main
