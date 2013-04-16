@@ -24,6 +24,9 @@
  CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
 ********************************************************************/
 
+
+
+
 /** INCLUDES *******************************************************/
 #include "USB/usb.h"
 #include "USB/usb_function_cdc.h"
@@ -73,10 +76,14 @@ char USB_Out_Buffer[64];
 
 BOOL stringPrinted;
 
+/** D E F I N I T I O N S ****************************************************/
+
+
 
 /** P R I V A T E  P R O T O T Y P E S ***************************************/
 static void InitializeSystem(void);
 void ProcessIO(void);
+void printUSBLog(void);
 void USBDeviceTasks(void);
 void YourHighPriorityISRCode();
 void YourLowPriorityISRCode();
@@ -301,6 +308,9 @@ void ProcessIO(void)
             {
                 switch(USB_Out_Buffer[i])
                 {
+					case 0x05:
+						printUSBLog();
+						break;
                     case 0x0A:
                     case 0x0D:
                         USB_In_Buffer[i] = USB_Out_Buffer[i];
@@ -321,6 +331,76 @@ void ProcessIO(void)
 
 } // End ProcessIO
 
+#define USB_LOGGING
+#ifdef USB_LOGGING
+/********************************************************************
+ * Function:        void printUSBLog(void)
+ *
+ * PreCondition:    None
+ *
+ * Input:           None
+ *
+ * Output:          None
+ *
+ * Side Effects:    None
+ *
+ * Overview:        Formats and sends the USB Log.
+ *******************************************************************/
+void printUSBLog(void){
+	BYTE bigBuffer[5000];
+    BYTE printBuff[100];
+    //putrsUSBUSART("\r\nUSB Log:\r\n");
+	sprintf(bigBuffer, "Total Entries: %i\r\n",USB_LOG_COUNT); 
+    putrsUSBUSART(bigBuffer);
+	int entries_printed = 0;
+	while(entries_printed < USB_LOG_COUNT){
+		BYTE* printPtr = printBuff;
+
+		switch(USB_LOG[entries_printed].type){
+			case CONNTECTED:
+				sprintf(printBuff, "%i -> Connected", USB_LOG[entries_printed].time);
+				break;
+			case DISCONECTED:
+				sprintf(printBuff, "%i -> Disconnected", USB_LOG[entries_printed].time);
+				break;
+			case RESET:
+				sprintf(printBuff, "%i -> RESET", USB_LOG[entries_printed].time);
+				break;
+			case ERROR:
+				sprintf(printBuff, "%i -> ERROR", USB_LOG[entries_printed].time);
+				break;
+			case STALL:
+				sprintf(printBuff, "%i -> STALL", USB_LOG[entries_printed].time);
+				break;
+			case STATECHANGE:
+				sprintf(printBuff, "%i -> State Changed to: %i", USB_LOG[entries_printed].time, USB_LOG[entries_printed].value);
+				break;
+			case TRANSCOM:
+				sprintf(printBuff, "%i -> Transfer Completed", USB_LOG[entries_printed].time);
+				break;
+			case IN:
+				sprintf(printBuff, "%i -> IN: %i", USB_LOG[entries_printed].time, USB_LOG[entries_printed].value);
+				break;
+			case OUT:
+				sprintf(printBuff, "%i -> OUT: %i", USB_LOG[entries_printed].time, USB_LOG[entries_printed].value);
+				break;
+			case SETUP:
+				sprintf(printBuff, "%i -> SETUP", USB_LOG[entries_printed].time);
+				break;
+			default:
+				sprintf(printBuff, "Uh, oh. Unknown Event Type!");
+				
+		}
+
+		
+
+		entries_printed++;
+	}
+	
+    putrsUSBUSART(bigBuffer);
+	USB_LOG_COUNT = 0;
+}
+#endif
 
 /********************************************************************
  * Function:        void BlinkUSBStatus(void)

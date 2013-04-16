@@ -274,7 +274,7 @@ firmware design flexibility.
 
 /** DEFINITIONS ****************************************************/
 #define USB_LOGGING
-#ifdef USB_LOGGING
+#ifdef	USB_LOGGING
 typedef enum{
 	CONNTECTED,
 	DISCONECTED,
@@ -294,7 +294,7 @@ typedef struct{
    int value;
 } USB_RECORD;
 
-USB_RECORD USB_LOG[100];
+USB_RECORD USB_LOG[1000];
 unsigned char USB_LOG_COUNT = 0;
 unsigned int timeSinceConnection = 0;
 #endif
@@ -574,6 +574,12 @@ void USBDeviceInit(void)
 
     //Indicate that we are now in the detached state        
     USBDeviceState = DETACHED_STATE;
+
+	#ifdef USB_LOGGING
+	USB_LOG[USB_LOG_COUNT].time = 0;
+	USB_LOG[USB_LOG_COUNT].type = STATECHANGE;
+	USB_LOG[USB_LOG_COUNT++].value = USBDeviceState;
+	#endif
 }
 
 /**************************************************************************
@@ -728,6 +734,12 @@ void USBDeviceTasks(void)
 
          //Move to the detached state                  
          USBDeviceState = DETACHED_STATE;
+
+		#ifdef USB_LOGGING
+		USB_LOG[USB_LOG_COvgnvbhjnUNT].time = 0;
+		USB_LOG[USB_LOG_COUNT].type = STATECHANGE;
+		USB_LOG[USB_LOG_COUNT++].value = USBDeviceState;
+		#endif
 
          #ifdef  USB_SUPPORT_OTG    
              //Disable D+ Pullup
@@ -1227,11 +1239,22 @@ USB_HANDLE USBTransferOnePacket(BYTE ep,BYTE dir,BYTE* data,BYTE len)
     //If the direction is IN
     if(dir != 0)
     {
+		
+		#ifdef USB_LOGGING
+		USB_LOG[USB_LOG_COUNT].time = timeSinceConnection;
+		USB_LOG[USB_LOG_COUNT++].type = IN;
+		#endif
+
         //point to the IN BDT of the specified endpoint
         handle = pBDTEntryIn[ep];
     }
     else
     {
+		#ifdef USB_LOGGING
+		USB_LOG[USB_LOG_COUNT].time = timeSinceConnection;
+		USB_LOG[USB_LOG_COUNT++].type = OUT;
+		#endif
+
         //else point to the OUT BDT of the specified endpoint
         handle = pBDTEntryOut[ep];
     }
@@ -1486,6 +1509,12 @@ void USBDeviceDetach(void)
          //Move to the detached state                  
          USBDeviceState = DETACHED_STATE;
 
+		#ifdef USB_LOGGING
+		USB_LOG[USB_LOG_COUNT].time = 0;
+		USB_LOG[USB_LOG_COUNT].type = STATECHANGE;
+		USB_LOG[USB_LOG_COUNT++].value = USBDeviceState;
+		#endif
+
          #ifdef  USB_SUPPORT_OTG    
              //Disable D+ Pullup
              U1OTGCONbits.DPPULUP = 0;
@@ -1597,6 +1626,12 @@ void USBDeviceAttach(void)
     
             //moved to the attached state
             USBDeviceState = ATTACHED_STATE;
+
+			#ifdef USB_LOGGING
+			USB_LOG[USB_LOG_COUNT].time = 0;
+			USB_LOG[USB_LOG_COUNT].type = STATECHANGE;
+			USB_LOG[USB_LOG_COUNT++].value = USBDeviceState;
+			#endif
     
             #ifdef  USB_SUPPORT_OTG
                 U1OTGCON = USB_OTG_DPLUS_ENABLE | USB_OTG_ENABLE;  
@@ -2224,6 +2259,12 @@ static void USBStdSetCfgHandler(void)
     {
         //Go back to the addressed state
         USBDeviceState = ADDRESS_STATE;
+
+		#ifdef USB_LOGGING
+		USB_LOG[USB_LOG_COUNT].time = 0;
+		USB_LOG[USB_LOG_COUNT].type = STATECHANGE;
+		USB_LOG[USB_LOG_COUNT++].value = USBDeviceState;
+		#endif
     }
     else
     {
@@ -2233,7 +2274,13 @@ static void USBStdSetCfgHandler(void)
         //Otherwise go to the configured state.  Update the state variable last,
         //after performing all of the set configuration related initialization
         //tasks.
-        USBDeviceState = CONFIGURED_STATE;		
+        USBDeviceState = CONFIGURED_STATE;
+
+		#ifdef USB_LOGGING
+		USB_LOG[USB_LOG_COUNT].time = 0;
+		USB_LOG[USB_LOG_COUNT].type = STATECHANGE;
+		USB_LOG[USB_LOG_COUNT++].value = USBDeviceState;
+		#endif		
     }//end if(SetupPkt.bConfigurationValue == 0)
 }//end USBStdSetCfgHandler
 
@@ -2895,6 +2942,12 @@ static void USBCheckStdRequest(void)
         case USB_REQUEST_SET_ADDRESS:
             inPipes[0].info.bits.busy = 1;            // This will generate a zero length packet
             USBDeviceState = ADR_PENDING_STATE;       // Update state only
+
+			#ifdef USB_LOGGING
+			USB_LOG[USB_LOG_COUNT].time = 0;
+			USB_LOG[USB_LOG_COUNT].type = STATECHANGE;
+			USB_LOG[USB_LOG_COUNT++].value = USBDeviceState;
+			#endif
             /* See USBCtrlTrfInHandler() for the next step */
             break;
         case USB_REQUEST_GET_DESCRIPTOR:
