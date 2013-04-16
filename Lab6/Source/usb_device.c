@@ -554,7 +554,7 @@ void USBDeviceInit(void)
     USBDeviceState = DETACHED_STATE;
 
 	#ifdef USB_LOGGING
-	USB_LOG[USB_LOG_COUNT].time = 0;
+	USB_LOG[USB_LOG_COUNT].time = timeSinceConnection;
 	USB_LOG[USB_LOG_COUNT].type = STATECHANGE;
 	USB_LOG[USB_LOG_COUNT++].value = USBDeviceState;
 	#endif
@@ -714,7 +714,7 @@ void USBDeviceTasks(void)
          USBDeviceState = DETACHED_STATE;
 
 		#ifdef USB_LOGGING
-		USB_LOG[USB_LOG_COvgnvbhjnUNT].time = 0;
+		USB_LOG[USB_LOG_COvgnvbhjnUNT].time = timeSinceConnection;
 		USB_LOG[USB_LOG_COUNT].type = STATECHANGE;
 		USB_LOG[USB_LOG_COUNT++].value = USBDeviceState;
 		#endif
@@ -806,7 +806,7 @@ void USBDeviceTasks(void)
 
 		#ifdef USB_LOGGING
 		timeSinceConnection = 0;
-		USB_LOG[USB_LOG_COUNT].time = 0;
+		USB_LOG[USB_LOG_COUNT].time = timeSinceConnection;
 		USB_LOG[USB_LOG_COUNT++].type = CONNTECTED;
 		#endif
 
@@ -997,7 +997,7 @@ void USBDeviceTasks(void)
      */
     if(USBTransactionCompleteIE)
     {
-		#ifdef USB_LOGGING
+		#ifdef USB_LOGGINGG
 		USB_LOG[USB_LOG_COUNT].time = timeSinceConnection;
 		USB_LOG[USB_LOG_COUNT++].type = TRANSCOM;
 		#endif
@@ -1488,7 +1488,7 @@ void USBDeviceDetach(void)
          USBDeviceState = DETACHED_STATE;
 
 		#ifdef USB_LOGGING
-		USB_LOG[USB_LOG_COUNT].time = 0;
+		USB_LOG[USB_LOG_COUNT].time = timeSinceConnection;
 		USB_LOG[USB_LOG_COUNT].type = STATECHANGE;
 		USB_LOG[USB_LOG_COUNT++].value = USBDeviceState;
 		#endif
@@ -1606,7 +1606,7 @@ void USBDeviceAttach(void)
             USBDeviceState = ATTACHED_STATE;
 
 			#ifdef USB_LOGGING
-			USB_LOG[USB_LOG_COUNT].time = 0;
+			USB_LOG[USB_LOG_COUNT].time = timeSinceConnection;
 			USB_LOG[USB_LOG_COUNT].type = STATECHANGE;
 			USB_LOG[USB_LOG_COUNT++].value = USBDeviceState;
 			#endif
@@ -2239,7 +2239,7 @@ static void USBStdSetCfgHandler(void)
         USBDeviceState = ADDRESS_STATE;
 
 		#ifdef USB_LOGGING
-		USB_LOG[USB_LOG_COUNT].time = 0;
+		USB_LOG[USB_LOG_COUNT].time = timeSinceConnection;
 		USB_LOG[USB_LOG_COUNT].type = STATECHANGE;
 		USB_LOG[USB_LOG_COUNT++].value = USBDeviceState;
 		#endif
@@ -2255,7 +2255,7 @@ static void USBStdSetCfgHandler(void)
         USBDeviceState = CONFIGURED_STATE;
 
 		#ifdef USB_LOGGING
-		USB_LOG[USB_LOG_COUNT].time = 0;
+		USB_LOG[USB_LOG_COUNT].time = timeSinceConnection;
 		USB_LOG[USB_LOG_COUNT].type = STATECHANGE;
 		USB_LOG[USB_LOG_COUNT++].value = USBDeviceState;
 		#endif		
@@ -2922,7 +2922,7 @@ static void USBCheckStdRequest(void)
             USBDeviceState = ADR_PENDING_STATE;       // Update state only
 
 			#ifdef USB_LOGGING
-			USB_LOG[USB_LOG_COUNT].time = 0;
+			USB_LOG[USB_LOG_COUNT].time = timeSinceConnection;
 			USB_LOG[USB_LOG_COUNT].type = STATECHANGE;
 			USB_LOG[USB_LOG_COUNT++].value = USBDeviceState;
 			#endif

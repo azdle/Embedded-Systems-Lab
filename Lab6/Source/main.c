@@ -351,57 +351,67 @@ void printUSBLog(void){
 	#ifdef USB_LOGGING
 
 	BYTE bigBuffer[5000];
-    BYTE printBuff[100];
-    //putrsUSBUSART("\r\nUSB Log:\r\n");
-	sprintf(bigBuffer, "Total Entries: %i\r\n",USB_LOG_COUNT); 
-    putrsUSBUSART(bigBuffer);
+	BYTE* printPtr = bigBuffer;
+    BYTE smallBuffer[100];
+    strcpy(bigBuffer, "\r\nUSB Log:\r\n");
+	sprintf(smallBuffer, "Total Entries: %i\r\n",USB_LOG_COUNT); 
+	strcat(bigBuffer, smallBuffer);
+
 	int entries_printed = 0;
+
+	bigBuffer[0] = '\0'; // Just in case
 	while(entries_printed < USB_LOG_COUNT){
-		BYTE* printPtr = printBuff;
 
 		switch(USB_LOG[entries_printed].type){
 			case CONNTECTED:
-				sprintf(printBuff, "%i -> Connected", USB_LOG[entries_printed].time);
+				sprintf(smallBuffer, "%i -> Connected\r\n", USB_LOG[entries_printed].time); 
+				strcat(bigBuffer, smallBuffer);
 				break;
 			case DISCONECTED:
-				sprintf(printBuff, "%i -> Disconnected", USB_LOG[entries_printed].time);
+				sprintf(smallBuffer, "%i -> Disconnected\r\n", USB_LOG[entries_printed].time);
+				strcat(bigBuffer, smallBuffer);
 				break;
 			case RESET:
-				sprintf(printBuff, "%i -> RESET", USB_LOG[entries_printed].time);
+				sprintf(smallBuffer, "%i -> RESET\r\n", USB_LOG[entries_printed].time);
+				strcat(bigBuffer, smallBuffer);
 				break;
 			case ERROR:
-				sprintf(printBuff, "%i -> ERROR", USB_LOG[entries_printed].time);
+				sprintf(smallBuffer, "%i -> ERROR\r\n", USB_LOG[entries_printed].time);
+				strcat(bigBuffer, smallBuffer);
 				break;
 			case STALL:
-				sprintf(printBuff, "%i -> STALL", USB_LOG[entries_printed].time);
+				sprintf(smallBuffer, "%i -> STALL\r\n", USB_LOG[entries_printed].time);
+				strcat(bigBuffer, smallBuffer);
 				break;
 			case STATECHANGE:
-				sprintf(printBuff, "%i -> State Changed to: %i", USB_LOG[entries_printed].time, USB_LOG[entries_printed].value);
+				sprintf(smallBuffer, "%i -> State Changed to: %i\r\n", USB_LOG[entries_printed].time, USB_LOG[entries_printed].value);
+				strcat(bigBuffer, smallBuffer);
 				break;
 			case TRANSCOM:
-				sprintf(printBuff, "%i -> Transfer Completed", USB_LOG[entries_printed].time);
+				sprintf(smallBuffer, "%i -> Transfer Completed\r\n", USB_LOG[entries_printed].time);
+				strcat(bigBuffer, smallBuffer);
 				break;
 			case IN:
-				sprintf(printBuff, "%i -> IN: %i", USB_LOG[entries_printed].time, USB_LOG[entries_printed].value);
+				sprintf(smallBuffer, "%i -> IN: %i\r\n", USB_LOG[entries_printed].time, USB_LOG[entries_printed].value);
+				strcat(bigBuffer, smallBuffer);
 				break;
 			case OUT:
-				sprintf(printBuff, "%i -> OUT: %i", USB_LOG[entries_printed].time, USB_LOG[entries_printed].value);
+				sprintf(smallBuffer, "%i -> OUT: %i\r\n", USB_LOG[entries_printed].time, USB_LOG[entries_printed].value);
+				strcat(bigBuffer, smallBuffer);
 				break;
 			case SETUP:
-				sprintf(printBuff, "%i -> SETUP", USB_LOG[entries_printed].time);
+				sprintf(smallBuffer, "%i -> SETUP\r\n", USB_LOG[entries_printed].time);
+				strcat(bigBuffer, smallBuffer);
 				break;
 			default:
-				sprintf(printBuff, "Uh, oh. Unknown Event Type!");
+				strcat(bigBuffer, "Uh, oh. Unknown Event Type!\r\n");
 				
 		}
-
-		
-
 		entries_printed++;
 	}
 	
     putrsUSBUSART(bigBuffer);
-	USB_LOG_COUNT = 0;
+	//USB_LOG_COUNT = 0;
 
 	#endif
 }
