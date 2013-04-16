@@ -417,6 +417,31 @@ void printUSBLog(void){
 }
 
 /********************************************************************
+ * Function:        void printUSBLog(void)
+ *
+ * PreCondition:    None
+ *
+ * Input:           None
+ *
+ * Output:          None
+ *
+ * Side Effects:    None
+ *
+ * Overview:        Formats and sends the USB Log.
+ *******************************************************************/
+void putLargeUSBUART(BYTE* largeString){
+	BYTE i = 0;
+	BYTE* tempPtr = largeString;
+
+	for(i = 0; strlen(largeString)/64; i++){
+		putUSBUSART(tempPtr, 64); //TODO: Need to add a `wait until buffer empty`
+		tempPtr += 64;
+	}
+
+	putrsUSBUSART(largeString); //print remainder
+}
+
+/********************************************************************
  * Function:        void BlinkUSBStatus(void)
  *
  * PreCondition:    None
