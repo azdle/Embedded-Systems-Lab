@@ -47,6 +47,7 @@ file_019=.
 file_020=.
 file_021=.
 file_022=.
+file_023=.
 [GENERATED_FILES]
 file_000=no
 file_001=no
@@ -71,6 +72,7 @@ file_019=no
 file_020=no
 file_021=no
 file_022=no
+file_023=no
 [OTHER_FILES]
 file_000=no
 file_001=no
@@ -95,6 +97,7 @@ file_019=no
 file_020=no
 file_021=no
 file_022=no
+file_023=no
 [FILE_INFO]
 file_000=Source\usb_device.c
 file_001=Source\usb_function_cdc.c
@@ -119,6 +122,7 @@ file_019=USB\usb_host.h
 file_020=USB\usb_host_generic.h
 file_021=USB\usb_host_msd.h
 file_022=USB\usb_host_msd_scsi.h
+file_023=Source\usb_logging.h
 [SUITE_INFO]
 suite_guid={14495C23-81F8-43F3-8A44-859C583D7760}
 suite_state=

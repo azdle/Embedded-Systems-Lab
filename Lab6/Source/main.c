@@ -23,13 +23,11 @@
  IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL OR
  CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
 ********************************************************************/
-
-
-
-
+#define USB_LOGGING
 /** INCLUDES *******************************************************/
 #include "USB/usb.h"
 #include "USB/usb_function_cdc.h"
+#include "usb_logging.h"
 
 #include "HardwareProfile.h"
 
@@ -77,7 +75,11 @@ char USB_Out_Buffer[64];
 BOOL stringPrinted;
 
 /** D E F I N I T I O N S ****************************************************/
-
+#ifdef	USB_LOGGING
+USB_RECORD USB_LOG[1000];
+unsigned char USB_LOG_COUNT = 0;
+unsigned int timeSinceConnection = 0;
+#endif
 
 
 /** P R I V A T E  P R O T O T Y P E S ***************************************/
@@ -308,7 +310,7 @@ void ProcessIO(void)
             {
                 switch(USB_Out_Buffer[i])
                 {
-					case 0x05:
+					case 0x12:
 						printUSBLog();
 						break;
                     case 0x0A:
@@ -331,8 +333,6 @@ void ProcessIO(void)
 
 } // End ProcessIO
 
-#define USB_LOGGING
-#ifdef USB_LOGGING
 /********************************************************************
  * Function:        void printUSBLog(void)
  *
@@ -347,6 +347,9 @@ void ProcessIO(void)
  * Overview:        Formats and sends the USB Log.
  *******************************************************************/
 void printUSBLog(void){
+	//
+	#ifdef USB_LOGGING
+
 	BYTE bigBuffer[5000];
     BYTE printBuff[100];
     //putrsUSBUSART("\r\nUSB Log:\r\n");
@@ -399,8 +402,9 @@ void printUSBLog(void){
 	
     putrsUSBUSART(bigBuffer);
 	USB_LOG_COUNT = 0;
+
+	#endif
 }
-#endif
 
 /********************************************************************
  * Function:        void BlinkUSBStatus(void)

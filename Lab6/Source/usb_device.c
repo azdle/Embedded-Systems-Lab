@@ -272,32 +272,10 @@ firmware design flexibility.
     #define _DTS_CHECKING_ENABLED _DTSEN
 #endif
 
+#include "usb_logging.h"
+
 /** DEFINITIONS ****************************************************/
 #define USB_LOGGING
-#ifdef	USB_LOGGING
-typedef enum{
-	CONNTECTED,
-	DISCONECTED,
-	RESET,
-	ERROR,
-	STALL,
-	STATECHANGE,
-	TRANSCOM,
-	IN,
-	OUT,
-	SETUP
-}USB_LOG_EVENT;
- 
-typedef struct{
-   USB_LOG_EVENT type;
-   int time;
-   int value;
-} USB_RECORD;
-
-USB_RECORD USB_LOG[1000];
-unsigned char USB_LOG_COUNT = 0;
-unsigned int timeSinceConnection = 0;
-#endif
 
 /** VARIABLES ******************************************************/
 #if defined(__18CXX)
