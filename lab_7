@@ -1,0 +1,653 @@
+/*****************************************************************************
+ * FileName:        TicTacToe.c
+ * Description:   This is the main TicTacToe game file. 
+******************************************************************************/
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include "Compiler.h"
+
+#include "GenericTypeDefs.h"
+#include "HardwareProfile.h"
+#include "TimeDelay.h"
+#include "Graphics/Graphics.h"
+
+#include "SST25VF016.h"
+#include "TouchScreen.h"
+
+#include "TTT_Images.h"
+
+//Configuration Bits
+#pragma config FPLLODIV = DIV_2, FPLLMUL = MUL_20, FPLLIDIV = DIV_1, FWDTEN = OFF, FCKSM = CSECME, FPBDIV = DIV_2
+#pragma config OSCIOFNC = ON, POSCMOD = XT, FSOSCEN = ON, FNOSC = PRIPLL
+#pragma config CP = OFF, BWP = OFF, PWP = OFF
+
+/////////////////////////////////////////////////////////////////////////////
+//                                MACROS
+/////////////////////////////////////////////////////////////////////////////
+#define WAIT_UNTIL_FINISH(x)    while(!x) //use around primitive drawing functions 
+#define DISPLAY_TICTACTOE 1
+#define CREATE_TICTACTOE 2
+#define  ID_TTT_00 0
+#define  ID_TTT_01 1
+#define  ID_TTT_02 2
+#define  ID_TTT_10 10
+#define  ID_TTT_11 11
+#define  ID_TTT_12 12
+#define  ID_TTT_20 20
+#define  ID_TTT_21 21
+#define  ID_TTT_22 22
+#define  ID_TTT_RESET 100
+#define  ID_TTT_WIN 101
+#define  ID_TTT_TURN 102
+#define  ID_TTT_TURN_IMG 103
+
+#define  ID_GRID 0
+
+#define  TEXT_STATE (ST_DRAW | ST_FRAME | ST_CENTER_ALIGN)
+#define  GRID_STATE (GRID_DRAW_ALL | GRID_SHOW_SEPARATORS_ONLY)
+#define  BTN_STATE (BTN_DRAW | BTN_HIDE)
+
+/////////////////////////////////////////////////////////////////////////////
+//                            LOCAL PROTOTYPES
+/////////////////////////////////////////////////////////////////////////////
+void InitializeBoard(void);
+void Init_CPUClocks(void);
+void TickInit(void);
+void InitTicTacToeStyleScheme(void);
+void CheckWin(void);
+SHORT TTTLeft (int location);
+SHORT TTTTop (int location);
+SHORT TTTRight (int location);
+SHORT TTTBottom (int location);
+
+/////////////////////////////////////////////////////////////////////////////
+//                               IMAGES USED
+/////////////////////////////////////////////////////////////////////////////
+extern const IMAGE_FLASH       	TTTX; //X image
+extern const IMAGE_FLASH       	TTTO; //O image
+
+/////////////////////////////////////////////////////////////////////////////
+//                          GLOBAL VARIABLES
+/////////////////////////////////////////////////////////////////////////////
+volatile DWORD      tick = 0;                           // tick counter
+int screenState = 2;
+int GameOver = 0;
+
+int Pressed00 = 0;
+int Pressed01 = 0;
+int Pressed02 = 0;
+int Pressed10 = 0;
+int Pressed11 = 0;
+int Pressed12 = 0;
+int Pressed20 = 0;
+int Pressed21 = 0;
+int Pressed22 = 0;
+
+int Win1 = 0;
+int Win2 = 0;
+STATICTEXT* WinTxt;
+XCHAR WinStr[] = {'W','i','n','!',0};
+XCHAR DrawStr[] = {'D','r','a','w',0};
+int turn = 1;
+
+GOL_SCHEME* TTTColorScheme;
+GOL_SCHEME* TTTGridColorScheme;
+GOL_SCHEME* TTTbuttonColorScheme;
+GOL_SCHEME* TTTtextColorScheme;
+
+
+XCHAR ResetStr[] = {'R','e','s','e','t',0};
+STATICTEXT* TurnTxt;
+XCHAR TurnStr[] = {'T','u','r','n',0};
+PICTURE* TurnImg;
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+//                                  MAIN
+/////////////////////////////////////////////////////////////////////////////
+int main(void)
+{
+    GOL_MSG msg; // GOL message structure to interact with GOL
+
+   
+   	InitializeBoard(); //Initialize everything for the display
+	InitTicTacToeStyleScheme();
+	SetColor(WHITE);
+	ClearDevice();
+
+
+	
+
+	//////////////////////////////////////
+	//MAIN CODE AND GOL LOOP HERE       //
+	//////////////////////////////////////
+
+	while(1)
+	{
+		if (GOLDraw()){ // Draw GOL object
+			TouchGetMsg(&msg); // Get message from
+			// touch screen
+			GOLMsg(&msg); // Process message
+		}
+	}
+
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//                      TICTACTOE GAME FUNCTIONS
+/////////////////////////////////////////////////////////////////////////////
+/************************************************************************
+ Function: WORD GOLMsgCallback(WORD objMsg, OBJ_HEADER* pObj, GOL_MSG* pMsg)
+
+ Overview: This function must be implemented by user. GOLMsg() function 
+ 		   calls it each time the valid message for the object received.
+           
+ Input: objMsg - translated message for the object,
+        pObj - pointer to the object,
+        pMsg - pointer to the non-translated, raw GOL message 
+
+ Output: If the function returns non-zero the message will 
+ 		 be processed by the object directly affected by the message.
+ 		 Default action on the object based on the message will be 
+ 		 performed.
+************************************************************************/
+WORD GOLMsgCallback(WORD objMsg, OBJ_HEADER *pObj, GOL_MSG *pMsg)
+{	
+	if (screenState == DISPLAY_TICTACTOE) { //done drawing tictactoe, now process messages from touchscreen
+		//if button released and game is still in play (or if reset button was pressed) do something
+	    if((objMsg == BTN_MSG_RELEASED) && (!GameOver || (GetObjID(pObj) == ID_TTT_RESET)))
+	    {
+			//check what was pressed
+	        switch(GetObjID(pObj))
+	        {
+		  		case ID_TTT_00:
+		            if((objMsg == BTN_MSG_RELEASED && Pressed00) == 0) //make sure button was not already pressed
+		            {                               
+						if (turn == 1) { //if it is X's turn, put an X in the box
+							BtnSetBitmap(pObj, (void *) &TTTX);
+							turn = 2; //now its O's turn
+							Pressed00 = 1; //indicate that X pressed the button
+						}
+						else { //if it is O's turn, put an O in the box
+							BtnSetBitmap(pObj, (void *) &TTTO);
+							turn = 1; //now its X's turn
+							Pressed00 = 2; //indicate that O pressed the button
+						}
+		            }
+					CheckWin(); //check for a winner
+		           	return (1);
+		
+		        case ID_TTT_01:
+		            if((objMsg == BTN_MSG_RELEASED && Pressed01) == 0) //make sure button was not already pressed
+		            {                          
+						if (turn == 1) {
+							BtnSetBitmap(pObj, (void *) &TTTX);
+							turn = 2;
+							Pressed01 = 1;
+						}
+						else {
+							BtnSetBitmap(pObj, (void *) &TTTO);
+							turn = 1;
+							Pressed01 = 2;
+						}
+		            }
+					CheckWin();
+					return (1);
+	
+		        case ID_TTT_02:
+		            if((objMsg == BTN_MSG_RELEASED && Pressed02) == 0) //make sure button was not already pressed
+		            {      
+						if (turn == 1) {
+							BtnSetBitmap(pObj, (void *) &TTTX);
+							turn = 2;
+							Pressed02 = 1;
+						}
+						else {
+							BtnSetBitmap(pObj, (void *) &TTTO);
+							turn = 1;
+							Pressed02 = 2;
+						}
+		            }
+					CheckWin();
+		            return (1);
+		
+		        case ID_TTT_10:
+		            if((objMsg == BTN_MSG_RELEASED && Pressed10) == 0) //make sure button was not already pressed
+		            {                      
+						if (turn == 1) {
+							BtnSetBitmap(pObj, (void *) &TTTX);
+							turn = 2;
+							Pressed10 = 1;
+						}
+						else {
+							BtnSetBitmap(pObj, (void *) &TTTO);
+							turn = 1;
+							Pressed10 = 2;
+						}
+		            }
+					CheckWin();
+		            return (1);
+		
+		        case ID_TTT_11:
+		            if((objMsg == BTN_MSG_RELEASED && Pressed11) == 0) //make sure button was not already pressed
+		            {          
+						if (turn == 1) {
+							BtnSetBitmap(pObj, (void *) &TTTX);
+							turn = 2;
+							Pressed11 = 1;
+						}
+						else {
+							BtnSetBitmap(pObj, (void *) &TTTO);
+							turn = 1;
+							Pressed11 = 2;
+						}
+		            }
+					CheckWin();
+		            return (1);
+		
+		        case ID_TTT_12:
+		            if((objMsg == BTN_MSG_RELEASED && Pressed12) == 0) //make sure button was not already pressed
+		            {                          
+						if (turn == 1) {
+							BtnSetBitmap(pObj, (void *) &TTTX);
+							turn = 2;
+							Pressed12 = 1;
+						}
+						else {
+							BtnSetBitmap(pObj, (void *) &TTTO);
+							turn = 1;
+							Pressed12 = 2;
+						}
+		            }
+					CheckWin();
+		            return (1);
+		
+		        case ID_TTT_20:
+		            if((objMsg == BTN_MSG_RELEASED && Pressed20) == 0) //make sure button was not already pressed
+		            {                  
+						if (turn == 1) {
+							BtnSetBitmap(pObj, (void *) &TTTX);
+							turn = 2;
+							Pressed20 = 1;
+						}
+						else {
+							BtnSetBitmap(pObj, (void *) &TTTO);
+							turn = 1;
+							Pressed20 = 2;
+						}
+		            }
+					CheckWin();
+		            return (1);
+		
+		
+		        case ID_TTT_21:
+		            if((objMsg == BTN_MSG_RELEASED && Pressed21) == 0) //make sure button was not already pressed
+		            {                      
+						if (turn == 1) {
+							BtnSetBitmap(pObj, (void *) &TTTX);
+							turn = 2;
+							Pressed21 = 1;
+						}
+						else {
+							BtnSetBitmap(pObj, (void *) &TTTO);
+							turn = 1;
+							Pressed21 = 2;
+						}
+		            }
+					CheckWin();
+		            return (1);
+		
+		        case ID_TTT_22:
+		            if((objMsg == BTN_MSG_RELEASED && Pressed22) == 0) //make sure button was not already pressed
+		            {                 
+						if (turn == 1) {
+							BtnSetBitmap(pObj, (void *) &TTTX);
+							turn = 2;
+							Pressed22 = 1;
+						}
+						else {
+							BtnSetBitmap(pObj, (void *) &TTTO);
+							turn = 1;
+							Pressed22 = 2;
+						}
+		            }
+					CheckWin();
+		            return (1);
+	
+		        case ID_TTT_RESET:
+		            if(objMsg == BTN_MSG_RELEASED)
+		            {   
+						screenState = CREATE_TICTACTOE; //recreate tictactoe screen and restart game
+		            }
+		            return (1);
+	
+	            default:
+	                return (1); // process by default
+	        }
+		}
+    }
+    return (1); // process message by default
+}
+
+/************************************************************************
+ Function: WORD GOLDrawCallback()
+
+ Overview: This function must be implemented by user. GOLDraw() function 
+ 		   calls it each time when GOL objects drawing is completed. User 
+ 		   drawing should be done here. GOL will not change color, line 
+ 		   type and clipping region settings while  this function 
+ 		   returns zero.
+
+ Output: If the function returns non-zero the draw control will be passed 
+		to GOL. GOLDraw() can proceed and re-draw objects that needs 
+		to be redrawn.
+************************************************************************/
+WORD GOLDrawCallback(void)
+{
+	///////////////////////////////////
+	//Create the screen layout here  //
+	///////////////////////////////////
+	if (screenState == CREATE_TICTACTOE) { //initialize tictactoe screen and variables
+	
+		GameOver = 0;
+		turn = 1;
+
+		Pressed00 = 0;
+		Pressed01 = 0;
+		Pressed02 = 0;
+		Pressed10 = 0;
+		Pressed11 = 0;
+		Pressed12 = 0;
+		Pressed20 = 0;
+		Pressed21 = 0;
+		Pressed22 = 0;
+		
+		Win1 = 0;
+		Win2 = 0;
+
+
+
+		// free memory for the objects in the previous linked list and start new list
+		GOLFree();
+
+
+		//Create tictactoe game widgets		
+   		BtnCreate(ID_TTT_RESET, 240, 200, 310, 235, 0, BTN_DRAW, NULL, ResetStr, NULL);
+		GridCreate(ID_GRID, 10, 10, 232, 232, GRID_STATE, 3, 3, 74, 74, TTTGridColorScheme);	
+		TurnTxt = StCreate(ID_TTT_TURN, 240, 10, 310, 40, TEXT_STATE, TurnStr, TTTtextColorScheme);  
+		TurnImg = PictCreate(ID_TTT_TURN_IMG, 240, 50, 310, 120, PICT_DRAW, 1, (void *) &TTTX, TTTColorScheme);
+		WinTxt = StCreate(ID_TTT_WIN, 240, 130, 310, 160, ST_HIDE, WinStr, TTTtextColorScheme); 
+
+		// Play button sidgets
+		BtnCreate(ID_TTT_00, 14, 14 , 82, 82, 0, BTN_STATE, NULL, NULL, TTTColorScheme);
+		BtnCreate(ID_TTT_01, 90, 12, 156, 82, 0, BTN_STATE, NULL, NULL, TTTColorScheme);
+		BtnCreate(ID_TTT_02, 164, 12, 230, 82, 0, BTN_STATE, NULL, NULL, TTTColorScheme);
+		BtnCreate(ID_TTT_10, 16, 90, 82, 156, 0, BTN_STATE, NULL, NULL, TTTColorScheme);
+		BtnCreate(ID_TTT_11, 90, 90, 156, 156, 0, BTN_STATE, NULL, NULL, TTTColorScheme);
+		BtnCreate(ID_TTT_12, 164, 90, 230, 156, 0, BTN_STATE, NULL, NULL, TTTColorScheme);
+		BtnCreate(ID_TTT_20, 16, 164, 82, 230, 0, BTN_STATE, NULL, NULL, TTTColorScheme);
+		BtnCreate(ID_TTT_21, 90, 164, 156, 230, 0, BTN_STATE, NULL, NULL, TTTColorScheme);
+		BtnCreate(ID_TTT_22, 164, 164, 230, 230, 0, BTN_STATE, NULL, NULL, TTTColorScheme);
+
+
+		screenState = DISPLAY_TICTACTOE; //tictactoe screen done drawing, now process messages (start game)
+		return (1);
+	}
+
+    return (1); // release drawing control to GOL
+}
+
+/************************************************************************
+ Function: void InitTicTacToeStyleScheme(GOL_SCHEME *pScheme)        
+ Overview: This function initializes the style scheme
+************************************************************************/
+SHORT TTTLeft (int location)
+{
+	SHORT pixel_location;
+	pixel_location = 10 + (60+15+5)*location;
+	return pixel_location;
+}
+
+SHORT TTTTop (int location)
+{
+	SHORT pixel_location;
+	pixel_location = 10 + (60+15+5)*location;
+	return pixel_location;
+}
+
+SHORT TTTRight (int location)
+{
+	SHORT pixel_location;
+	pixel_location = TTTLeft(location) + 60;
+	return pixel_location;
+}
+
+SHORT TTTBottom (int location)
+{
+	SHORT pixel_location;
+	pixel_location = TTTTop(location) + 60;
+	return pixel_location;
+}
+
+
+void InitTicTacToeStyleScheme(void)
+{
+	TTTColorScheme = 						GOLCreateScheme();
+	TTTbuttonColorScheme = 					GOLCreateScheme();
+	TTTtextColorScheme = 					GOLCreateScheme();
+	TTTGridColorScheme = 					GOLCreateScheme();
+
+	//for the game "buttons" which are pressed to play
+    TTTColorScheme->Color0 = 				RGB565CONVERT(0xFF, 0xFF, 0xFF);
+    TTTColorScheme->Color1 = 				RGB565CONVERT(0xAA, 0xAA, 0xAA);
+    TTTColorScheme->EmbossDkColor = 		RGB565CONVERT(0xFF, 0xFF, 0xFF);
+    TTTColorScheme->EmbossLtColor = 		RGB565CONVERT(0xFF, 0xFF, 0xFF);
+    TTTColorScheme->TextColor0 = 			RGB565CONVERT(0xFF, 0xFF, 0xFF);
+    TTTColorScheme->TextColor1 = 			RGB565CONVERT(0xFF, 0xFF, 0xFF);
+
+	//for the reset button
+    TTTbuttonColorScheme->Color0 = 			RGB565CONVERT(0x77, 0x77, 0xDD);
+    TTTbuttonColorScheme->Color1 = 			RGB565CONVERT(0xFF, 0xFF, 0x44);
+    TTTbuttonColorScheme->EmbossDkColor = 	RGB565CONVERT(0x22, 0x22, 0xAA);
+    TTTbuttonColorScheme->EmbossLtColor = 	RGB565CONVERT(0x99, 0x99, 0xFF);
+    TTTbuttonColorScheme->TextColor0 = 		RGB565CONVERT(0xFF, 0xFF, 0x44);
+    TTTbuttonColorScheme->TextColor1 = 		RGB565CONVERT(0x77, 0x77, 0xDD);
+
+	//for the text
+    TTTtextColorScheme->Color0 = 			RGB565CONVERT(0xFF, 0xFF, 0xFF);
+    TTTtextColorScheme->Color1 = 			RGB565CONVERT(0xFF, 0xFF, 0xFF);
+    TTTtextColorScheme->TextColor0 = 		RGB565CONVERT(0x00, 0x00, 0x00);
+    TTTtextColorScheme->TextColor1 = 		RGB565CONVERT(0x00, 0x00, 0x00);
+    TTTtextColorScheme->CommonBkColor = 	RGB565CONVERT(0xFF, 0xFF, 0xFF);
+
+	//for the grid
+    TTTGridColorScheme->CommonBkColor = 	RGB565CONVERT(0xFF, 0xFF, 0xFF);
+    TTTGridColorScheme->EmbossLtColor = 	RGB565CONVERT(0x00, 0x00, 0x00);
+}
+
+/*********************************************************************
+* Function: CheckWin()
+* Overview: Check for a winner or a draw.
+*********************************************************************/
+void CheckWin(void)
+{
+	//Check Player 1 Win
+	//rows
+	if (Pressed00 == 1 && Pressed01 == 1 && Pressed02 == 1) Win1 = 1;
+	if (Pressed10 == 1 && Pressed11 == 1 && Pressed12 == 1) Win1 = 1;
+	if (Pressed20 == 1 && Pressed21 == 1 && Pressed22 == 1) Win1 = 1;
+
+	//columns
+	if (Pressed00 == 1 && Pressed10 == 1 && Pressed20 == 1) Win1 = 1;
+	if (Pressed01 == 1 && Pressed11 == 1 && Pressed21 == 1) Win1 = 1;
+	if (Pressed02 == 1 && Pressed12 == 1 && Pressed22 == 1) Win1 = 1;
+
+	//diagonals
+	if (Pressed00 == 1 && Pressed11 == 1 && Pressed22 == 1) Win1 = 1;
+	if (Pressed02 == 1 && Pressed11 == 1 && Pressed20 == 1) Win1 = 1;
+
+	//Check Player 2 Win
+	//rows
+	if (Pressed00 == 2 && Pressed01 == 2 && Pressed02 == 2) Win2 = 1;
+	if (Pressed10 == 2 && Pressed11 == 2 && Pressed12 == 2) Win2 = 1;
+	if (Pressed20 == 2 && Pressed21 == 2 && Pressed22 == 2) Win2 = 1;
+
+	//columns
+	if (Pressed00 == 2 && Pressed10 == 2 && Pressed20 == 2) Win2 = 1;
+	if (Pressed01 == 2 && Pressed11 == 2 && Pressed21 == 2) Win2 = 1;
+	if (Pressed02 == 2 && Pressed12 == 2 && Pressed22 == 2) Win2 = 1;
+
+	//diagonals
+	if (Pressed00 == 2 && Pressed11 == 2 && Pressed22 == 2) Win2 = 1;
+	if (Pressed02 == 2 && Pressed11 == 2 && Pressed20 == 2) Win2 = 1;
+
+	//Check if there is a winner and end game if there is
+	
+	if (Win1 || Win2) {
+		SetState(TurnTxt, ST_HIDE);
+		SetState(WinTxt, ST_DRAW | ST_CENTER_ALIGN);
+		GameOver = 1;
+		return;
+	}
+	//If no winner, check for a draw
+	else if (Pressed00 && Pressed01 && Pressed02 && Pressed10 && Pressed11 && Pressed12 && Pressed20 && Pressed21 && Pressed22) {
+		SetState(TurnTxt, ST_HIDE);
+		SetState(TurnImg, PICT_HIDE);
+		StSetText(WinTxt, DrawStr);
+		SetState(WinTxt, ST_DRAW | ST_CENTER_ALIGN);
+		GameOver = 1;
+		return;
+	}
+	
+	//set image for whose turn it is
+	if (turn == 1) {
+		PictSetBitmap(TurnImg, (void *) &TTTX);
+	}
+	if (turn == 2) {
+		PictSetBitmap(TurnImg, (void *) &TTTO);
+	}
+	SetState(TurnImg, PICT_DRAW); //now redraw image with new settings 
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//                      BOARD INITIALIZTION FUNCTIONS
+/////////////////////////////////////////////////////////////////////////////
+/*********************************************************************
+* Function: InitializeBoard()
+* Overview: Initializes the hardware components including the PIC device
+*           used.
+*********************************************************************/
+void InitializeBoard(void)
+{
+	const DRV_SPI_INIT_DATA SPI_Init_Data = {SST25_SPI_CHANNEL, 1, 0, 0, 1, 1, 0};
+
+	Init_CPUClocks();
+
+	INTEnableSystemMultiVectoredInt();
+	SYSTEMConfigPerformance(GetSystemClock());
+
+    GOLInit(); // Initialize graphics library and create default style scheme for GOL
+
+	//The following are PIC device specific settings for the SPI channel used. 
+	//Set IOs directions for SST25 SPI
+	SST25_CS_LAT = 1;
+	SST25_CS_TRIS = 0;
+
+	// initialize the Flash Memory driver
+	SST25Init((DRV_SPI_INIT_DATA*)&SPI_Init_Data); 
+    
+    // initialize the timer that manages the tick counter
+    TickInit();                     	
+
+    // initialize the components for Resistive Touch Screen
+    TouchInit(NVMWrite, NVMRead, NVMSectorErase, NULL);
+}    
+
+/*********************************************************************
+* Function: Init_CPUClocks()
+* Overview: Initialize the CPU settings, clocks and registers for interrupts.
+********************************************************************/
+void Init_CPUClocks(void)
+{
+    int value;
+
+    // this also enables the cache
+    value = SYSTEMConfigPerformance(GetSystemClock());
+    mOSCSetPBDIV(OSC_PB_DIV_2);
+
+    INTEnableSystemMultiVectoredInt();
+
+    value = OSCCON;
+    while(!(value & 0x00000020))
+        value = OSCCON; // Wait for PLL lock to stabilize
+
+    AD1PCFG = 0xFFFF;       // Set analog pins to digital.
+    TRISF = 0x00;
+}
+
+/*********************************************************************
+* Function: Timer3 ISR
+* Overview: increments tick counter. Tick is approx. 1 ms.
+********************************************************************/
+#define __T3_ISR    __ISR(_TIMER_3_VECTOR, ipl7)
+#define TICK_PRESCALER	16
+int tickscaler;
+
+void __T3_ISR _T3Interrupt(void)
+{
+    TMR3 = 0;
+	if (tickscaler > TICK_PRESCALER) {
+    	tickscaler = 0;
+    	tick++;
+ 	} 
+ 	else
+    	tickscaler++;
+ 	  	
+    TouchDetectPosition();
+    mT3ClearIntFlag(); // Clear flag
+}
+
+/*********************************************************************
+* Function: void TickInit(void)
+* Overview: sets tick timer
+********************************************************************/
+#define TICK_PERIOD 		(GetSystemClock()/300000) 
+void TickInit(void)
+{
+    // Initialize Timer4
+    OpenTimer3(T3_ON | T3_PS_1_8, TICK_PERIOD);  // enable timer to run for approximately 100 us
+    ConfigIntTimer3(T3_INT_ON | T3_INT_PRIOR_7); // Enable interrupt
+    
+    tickscaler = 0;
+}
+
+/*********************************************************************
+* Function: WORD ExternalMemoryCallback(EXTDATA* memory, LONG offset, WORD nCount, void* buffer)
+*
+* Input:  memory - pointer to the bitmap or font external memory structures
+*                  (FONT_EXTERNAL or BITMAP_EXTERNAL)
+*         offset - data offset
+*         nCount - number of bytes to be transferred to the buffer
+*         buffer - pointer to the buffer
+*
+* Output: number of bytes were transferred.
+*
+* Overview: this function must be implemented in application. Graphics Library calls it
+*           each time the data from external memory is required. The application must copy 
+*           required data to the buffer provided.
+********************************************************************/
+
+// If there are several memories in the system they can be selected by IDs.
+// In this program, ID for memory chip installed on Graphics PICTail board is assumed to be 0.
+#define SST39_MEMORY    0
+WORD ExternalMemoryCallback(IMAGE_EXTERNAL *memory, LONG offset, WORD nCount, void *buffer)
+{
+    if(memory->ID == SST39_MEMORY)
+    {
+		SST25ReadArray(memory->address + offset, // address to read from
+		(BYTE *)buffer, nCount);
+    }
+    return (nCount);
+}
